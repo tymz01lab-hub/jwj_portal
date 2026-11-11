@@ -1,0 +1,5 @@
+Built-in image_gen tool.
+Prompt: Deep midnight navy space, flowing violet and teal nebula clouds, abundant tiny sharp stars and luminous sparkling white stars with delicate diffraction rays; immersive detailed astronomical fantasy illustration; square full-bleed image for star-shaped cropping; no frame, people, planets, text, watermark.
+
+Daytime prompt (built-in image_gen): Dreamlike sunlit meadow and softly silhouetted trees, translucent ground mist, warm bright noon/early-afternoon sunshine, luminous cream and pale gold, fresh pale green, sunlight shafts through haze, cinematic photographic fantasy, wide composition, no people, buildings, text or watermark.
+Night video: 10-second WebM animation of generated cosmic image with slow drifting/zoom and twinkling stars.

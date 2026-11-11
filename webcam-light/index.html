@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>고요한 숲 · 빛의 산책</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #020706; }
+    body { font-family: system-ui, sans-serif; color: #dae1d5; }
+    .forest, canvas { position: fixed; inset: 0; width: 100%; height: 100%; }
+    .forest { object-fit: cover; user-select: none; pointer-events: none; }
+    canvas { touch-action: none; }
+    .hint { position: fixed; bottom: 36px; left: 24px; right: 24px; margin: 0; text-align: center; font-size: 13px; font-weight: 300; letter-spacing: .12em; opacity: .7; pointer-events: none; transition: opacity 1.8s; }
+    body.exploring .hint { opacity: 0; }
+    button { position: fixed; top: 24px; right: 24px; border: 1px solid #dce8d322; border-radius: 24px; padding: 10px 16px; background: #09100b66; color: #dce8d3b3; font: inherit; font-size: 12px; cursor: pointer; }
+    button:hover, button:focus-visible { background: #213021cc; color: #fff; }
+    button:focus-visible { outline: 2px solid #dce8d3; outline-offset: 4px; }
+    #message { position: fixed; top: 70px; right: 24px; font-size: 12px; }
+    @media (prefers-reduced-motion: reduce) { .hint { transition: none; } }
+  </style>
+</head>
+<body>
+  <img class="forest" src="forest.png" alt="나무와 이끼, 양치식물로 둘러싸인 고요한 숲" draggable="false">
+  <canvas aria-label="마우스를 움직이면 주변 숲이 밝아지고 빛의 흔적이 서서히 사라집니다."></canvas>
+  <p class="hint">마우스를 천천히 움직여 숲을 밝혀 보세요</p>
+  <button id="fullscreen" type="button">전체 화면</button>
+  <span id="message" role="status"></span>
+  <script>
+    const canvas = document.querySelector('canvas');
+    const ctx = canvas.getContext('2d');
+    const fullscreen = document.querySelector('#fullscreen');
+    const message = document.querySelector('#message');
+    const forest = document.querySelector('.forest');
+    const trail = [];
+    const pointer = { x: 0, y: 0, inside: false, placed: false };
+    const light = { x: 0, y: 0, strength: 0 };
+    let width, height, radius, previousTime = performance.now();
+
+    function resize() {
+      width = innerWidth;
+      height = innerHeight;
+      const scale = Math.min(devicePixelRatio || 1, 1.5);
+      canvas.width = Math.round(width * scale);
+      canvas.height = Math.round(height * scale);
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      radius = Math.max(130, Math.min(270, Math.min(width, height) * .28));
+      trail.length = 0;
+    }
+
+    // 어둠을 둥글고 부드럽게 걷어 내어 숲의 실제 색과 질감을 드러냅니다.
+    function reveal(x, y, size, strength) {
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, size);
+      gradient.addColorStop(0, `rgba(0,0,0,${strength})`);
+      gradient.addColorStop(.25, `rgba(0,0,0,${strength * .85})`);
+      gradient.addColorStop(.6, `rgba(0,0,0,${strength * .32})`);
+      gradient.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x - size, y - size, size * 2, size * 2);
+    }
+
+    canvas.addEventListener('pointermove', event => {
+      const now = performance.now();
+      if (!pointer.inside) {
+        light.x = event.clientX;
+        light.y = event.clientY;
+      }
+      if (pointer.inside && pointer.placed) {
+        const distance = Math.hypot(event.clientX - pointer.x, event.clientY - pointer.y);
+        const steps = Math.min(40, Math.ceil(distance / 18));
+        for (let i = 1; i <= steps; i++) {
+          const t = i / steps;
+          trail.push({ x: pointer.x + (event.clientX - pointer.x) * t, y: pointer.y + (event.clientY - pointer.y) * t, born: now });
+        }
+        if (trail.length > 180) trail.splice(0, trail.length - 180);
+      }
+      pointer.x = event.clientX;
+      pointer.y = event.clientY;
+      pointer.inside = pointer.placed = true;
+      document.body.classList.add('exploring');
+    });
+    function leave() { pointer.inside = false; }
+    canvas.addEventListener('pointerleave', leave);
+    canvas.addEventListener('pointercancel', leave);
+    canvas.addEventListener('pointerup', event => { if (event.pointerType !== 'mouse') leave(); });
+    window.addEventListener('blur', leave);
+    window.addEventListener('resize', resize);
+
+    function frame(now) {
+      const dt = Math.min(64, now - previousTime);
+      previousTime = now;
+      light.x += (pointer.x - light.x) * (1 - Math.exp(-dt / 65));
+      light.y += (pointer.y - light.y) * (1 - Math.exp(-dt / 65));
+      light.strength += ((pointer.inside ? 1 : 0) - light.strength) * (1 - Math.exp(-dt / (pointer.inside ? 180 : 700)));
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = 'rgba(1, 7, 6, .88)';
+      ctx.fillRect(0, 0, width, height);
+      ctx.globalCompositeOperation = 'destination-out';
+      while (trail.length && now - trail[0].born >= 3000) trail.shift();
+      for (const point of trail) {
+        const age = now - point.born;
+        const fade = Math.exp(-age / 850) * (1 - age / 3000);
+        reveal(point.x, point.y, radius * .75, .075 * fade);
+      }
+      reveal(light.x, light.y, radius, light.strength * .94);
+      ctx.globalCompositeOperation = 'source-over';
+      // 아주 옅은 따뜻한 빛으로 중심을 감쌉니다.
+      const glow = ctx.createRadialGradient(light.x, light.y, 0, light.x, light.y, radius * .65);
+      glow.addColorStop(0, `rgba(255, 236, 174, ${light.strength * .1})`);
+      glow.addColorStop(1, 'rgba(255,236,174,0)');
+      ctx.fillStyle = glow;
+      ctx.fillRect(light.x - radius, light.y - radius, radius * 2, radius * 2);
+      requestAnimationFrame(frame);
+    }
+
+    fullscreen.addEventListener('click', async () => {
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else await document.documentElement.requestFullscreen();
+        message.textContent = '';
+      } catch {
+        message.textContent = 'Chrome에서 F11 키로 전체 화면을 열 수 있어요.';
+      }
+    });
+    document.addEventListener('fullscreenchange', () => {
+      fullscreen.textContent = document.fullscreenElement ? '화면 줄이기' : '전체 화면';
+    });
+    forest.addEventListener('error', () => { message.textContent = 'forest.png 파일이 같은 폴더에 있는지 확인해 주세요.'; });
+    resize();
+    // 첫 화면부터 어둡게 표시해 밝은 이미지가 순간적으로 번쩍이지 않게 합니다.
+    frame(performance.now());
+  </script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>글자 사이</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3efdF;color:#202c47;font-family:"Malgun Gothic",sans-serif}main{max-width:1080px;margin:auto;padding:5vh 4vw;display:grid;grid-template-columns:1fr 2fr;gap:5vw;align-items:center}h1{font-size:clamp(42px,6vw,90px);letter-spacing:-.12em;margin:0;line-height:1.1}p{line-height:1.7}button{background:#223357;color:white;border:0;border-radius:24px;padding:12px 20px;cursor:pointer;font:inherit}small{display:block;margin-top:12px}figure{margin:0}canvas{width:100%;display:block;background:#fffcf3;border:2px solid #233451}figcaption{font-size:20px;font-weight:800;padding:12px 0;min-height:52px}strong{color:#bd482b}@media(max-width:700px){main{display:block;padding:20px}figure{margin-top:18px}h1{font-size:40px}}
+</style>
+<main><section><h1>글자 사이</h1><p>방향키로 한글 벽 사이를 걸어<br>주황색 글자를 차례로 모으세요.<br>눈을 깜박이면 글자가 자리를 바꿉니다.</p><button id="camera">내 얼굴 넣기</button><small id="state" role="status">카메라 꺼짐</small></section><figure><canvas id="board" width="780" height="780" aria-label="한글 미로"></canvas><figcaption id="caption"></figcaption></figure></main><video id="video" hidden muted playsinline></video>
+<script>
+const phrases=['안녕하세요','반갑습니다','감사합니다','좋은 아침입니다.'];
+const grid=['###########','#.........#','#.###.###.#','#...#...#.#','###.#.#.#.#','#...#.#...#','#.###.###.#','#.....#...#','#.###.#.###','#.........#','###########'];
+const open=[],walls=[];
+grid.join('').split('').forEach((ch,i)=>(ch==='.'?open:walls).push(i));
+const ctx=board.getContext('2d'), cell=780/11;
+let player=12,stage=0,count=0,targets=[],ink=[],face=null,finished=false;
+function shuffle(items){
+ for(let i=items.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[items[i],items[j]]=[items[j],items[i]]}
+ return items;
+}
+function letters(){return phrases[stage].replace(/[ .]/g,'')}
+function scatter(){
+ ink=shuffle([...walls.map((_,i)=>phrases.join('').replace(/[ .]/g,'')[i%20])]);
+ targets=shuffle(open.filter(i=>i!==player)).slice(0,letters().length-count);
+ draw();
+}
+function draw(){
+ ctx.clearRect(0,0,780,780);ctx.textAlign='center';ctx.textBaseline='middle';
+ function glyph(i,g,color){ctx.fillStyle=color;ctx.fillText(g,(i%11+.5)*cell,(Math.floor(i/11)+.53)*cell)}
+ ctx.font='900 56px Malgun Gothic,sans-serif';walls.forEach((i,k)=>glyph(i,ink[k],'#253857'));
+ ctx.font='700 35px Malgun Gothic,sans-serif';targets.forEach((i,k)=>glyph(i,letters()[count+k],k?'#998f80':'#c94b22'));
+ const x=(player%11+.5)*cell,y=(Math.floor(player/11)+.42)*cell;
+ ctx.fillStyle='#e26c40';ctx.beginPath();ctx.moveTo(x,y-3);ctx.lineTo(x-25,y+36);ctx.lineTo(x+25,y+36);ctx.fill();
+ ctx.save();ctx.beginPath();ctx.arc(x,y,23,0,2*Math.PI);ctx.clip();ctx.fillStyle='#ffc567';ctx.fillRect(x-23,y-23,46,46);
+ if(face&&video.readyState>=2){ctx.translate(x+23,y-23);ctx.scale(-1,1);ctx.drawImage(video,...face,0,0,46,46)}
+ else{ctx.fillStyle='#273650';ctx.fillRect(x-10,y-2,4,5);ctx.fillRect(x+6,y-2,4,5)}ctx.restore();
+ caption.textContent=finished?phrases.join(' · '):phrases[stage]+'　'+Array.from(letters(),(c,i)=>i<count?c:'·').join(' ');
+}
+addEventListener('keydown',e=>{
+ const delta={ArrowLeft:-1,ArrowRight:1,ArrowUp:-11,ArrowDown:11}[e.key];if(!delta)return;
+ e.preventDefault();if(!open.includes(player+delta)||finished)return;player+=delta;
+ if(player===targets[0]){targets.shift();count++;
+ if(count===letters().length){if(stage===phrases.length-1)finished=true;else{stage++;count=0;scatter()}}}
+ draw();
+});
+scatter();
+const base='https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619/';
+let closed=false,baseline=.28;
+function track(result){
+ const p=result.multiFaceLandmarks?.[0];if(!p){closed=false;face=null;state.textContent='카메라 정면을 바라보세요';draw();return}
+ const w=video.videoWidth,h=video.videoHeight;
+ const size=Math.min(w,h,Math.max((p[152].y-p[10].y)*h,Math.abs(p[454].x-p[234].x)*w)*1.15);
+ face=[Math.max(0,Math.min(w-size,p[1].x*w-size/2)),Math.max(0,Math.min(h-size,(p[10].y+p[152].y)*h/2-size/2)),size,size];
+ const dist=(a,b)=>Math.hypot((p[a].x-p[b].x)*w,(p[a].y-p[b].y)*h);
+ const gap=(dist(159,145)/dist(33,133)+dist(386,374)/dist(362,263))/2;
+ baseline=Math.max(baseline*.998,Math.min(.45,gap));
+ if(gap<baseline*.55)closed=true;
+ if(closed&&gap>baseline*.77){closed=false;if(!finished)scatter()}
+ state.textContent='얼굴 연결됨 · 눈을 깜박여 보세요';draw();
+}
+camera.onclick=async()=>{
+ camera.disabled=true;let mesh;
+ try{
+ video.srcObject=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480},audio:false});await video.play();
+ state.textContent='눈 인식 도구를 불러오는 중…';
+ if(!window.FaceMesh)await new Promise((ok,fail)=>{const s=document.createElement('script');s.src=base+'face_mesh.js';s.onload=ok;s.onerror=fail;document.head.append(s)});
+ mesh=new FaceMesh({locateFile:f=>base+f});mesh.setOptions({maxNumFaces:1});mesh.onResults(track);
+ camera.textContent='카메라 사용 중';
+ while(video.srcObject){await mesh.send({image:video});await new Promise(requestAnimationFrame)}
+ }catch(e){video.srcObject?.getTracks().forEach(t=>t.stop());video.srcObject=null;face=null;closed=false;draw();
+ state.textContent=e.name==='NotAllowedError'?'Chrome에서 카메라 사용을 허용해 주세요.':'카메라 연결과 인터넷을 확인한 뒤 다시 눌러 주세요.';
+ camera.textContent='내 얼굴 넣기';camera.disabled=false;if(mesh)await mesh.close()}
+};
+</script></html>

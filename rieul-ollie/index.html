@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>리을 파크 — 알리</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#191918;color:#f0eddb;font:16px/1.55 "Malgun Gothic",sans-serif}main{width:min(1050px,94vw);margin:4vh auto}header,footer,.controls{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}h1{font-size:clamp(32px,5vw,64px);letter-spacing:-.09em;font-style:italic;margin:0}header b{font:bold italic clamp(25px,5vw,60px) Georgia;color:#cee948}canvas{width:100%;display:block;background:#e4dfc8;margin:15px 0;border-radius:3px}button{font:inherit;font-weight:bold;cursor:pointer;border:1px solid #adaf98;border-radius:4px;color:inherit;background:transparent;padding:10px 18px}button:first-child{background:#cee948;border-color:#cee948;color:#202019}p{margin:9px 0;color:#dad9cb}small{color:#cee948}video{width:112px;transform:scaleX(-1);border-radius:4px}
+</style>
+<main><header><h1>리을 파크</h1><b>Ollie Session</b></header>
+<canvas id="park" width="960" height="420" aria-label="리을 모양의 계단을 뛰어넘는 스케이터"></canvas>
+<footer><div><div class="controls"><button id="demo">알리 해보기 · Space</button><button id="camera">몸으로 타기</button></div>
+<p>카메라에 어깨부터 발목까지 보이게 서서, 무릎을 굽혔다 빠르게 펴세요.</p><small id="status" role="status">스페이스바를 누르면 소리와 함께 점프해요.</small></div><video id="cam" hidden autoplay playsinline muted></video></footer></main>
+<script>
+const canvas=document.querySelector('canvas'),g=canvas.getContext('2d'),msg=document.querySelector('#status');
+let audio,start=null,side=-1,impact=-1000,bent=false;
+function sound(landing){
+ if(!audio)return;
+ const t=audio.currentTime,osc=audio.createOscillator(),gain=audio.createGain();
+ osc.type=landing?'sine':'triangle';osc.frequency.setValueAtTime(landing?145:1300,t);
+ osc.frequency.exponentialRampToValueAtTime(landing?42:190,t+.09);
+ gain.gain.setValueAtTime(landing?.48:.29,t);gain.gain.exponentialRampToValueAtTime(.001,t+(landing?.23:.075));
+ osc.connect(gain).connect(audio.destination);osc.start(t);osc.stop(t+.25);
+}
+function unlock(){audio??=new AudioContext();audio.resume().catch(()=>{})}
+function jump(){if(start!==null)return;start=performance.now();sound(false)}
+demo.onclick=()=>{unlock();jump()};
+addEventListener('keydown',e=>{if(e.code==='Space'&&document.activeElement!==camera){e.preventDefault();if(!e.repeat)demo.onclick()}});
+function stroke(points,color,width){
+ g.beginPath();points.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.strokeStyle=color;g.lineWidth=width;g.stroke();
+}
+function dot(x,y,r,color){g.fillStyle=color;g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fill()}
+function paint(now){
+ const u=start===null?0:Math.min(1,(now-start)/900),arc=4*u*(1-u);
+ const x=480+side*225*(1-2*u),y=342-200*arc;
+ if(u===1){start=null;side=-side;impact=now;sound(true)}
+ g.fillStyle='#e4dfc8';g.fillRect(0,0,960,420);
+ g.save();g.beginPath();g.rect(0,0,960,420);g.clip();g.fillStyle='#c9c6b0';
+ for(let j=0;j<18;j++)for(let i=0;i<75;i++)g.fillRect(i*14+(j%2)*7,j*19,1.6,1.6);
+ g.translate(83,201);g.rotate(-.10);g.fillStyle='#d0cbb5';g.font='italic 900 148px Georgia';g.fillText('OLLIE',0,0);g.restore();
+ g.fillStyle='#292a27';g.fillRect(0,343,960,6);g.fillStyle='#d2ceba';g.fillRect(0,349,960,71);
+ const rail=[[398,233],[550,226],[540,270],[414,276],[403,317],[567,309]];
+ g.save();g.translate(7,10);stroke(rail,'#262822',30);g.restore();stroke(rail,'#ed5538',28);
+ g.setLineDash([9,17,2,13]);stroke(rail,'#f79b6a',2);g.setLineDash([]);
+ g.save();g.translate(x,y);g.scale(side===1&&u!==1?-1:1,1);g.rotate(-.19*Math.sin(2*Math.PI*u));
+ const tuck=arc*15+(bent&&start===null?12:0);
+ g.lineJoin='round';g.lineCap='round';
+ stroke([[-7,-62+tuck],[-21,-37],[ -14,-15]],'#263638',13);
+ stroke([[1,-63+tuck],[24,-42],[16,-15]],'#32484a',14);
+ stroke([[-8,-96+tuck],[-4,-66+tuck]],'#32383a',28);
+ stroke([[-6,-88+tuck],[-25,-77+tuck],[-40,-85+tuck]],'#303638',8);
+ stroke([[1,-91+tuck],[23,-83+tuck],[37,-96+tuck]],'#303638',8);
+ dot(0,-116+tuck,12,'#a56445');stroke([[-11,-123+tuck],[13,-124+tuck]],'#21251e',8);
+ stroke([[-20,-16],[-8,-16]],'#eee9d2',7);stroke([[11,-16],[24,-16]],'#eee9d2',7);
+ stroke([[-34,-14],[-27,-9],[25,-9],[34,-15]],'#20231d',6);
+ dot(-19,-4,4,'#a3bd25');dot(19,-4,4,'#a3bd25');g.restore();
+ const fade=1-(now-impact)/220;if(fade>0){g.save();g.globalAlpha=fade;for(const d of [-1,1])stroke([[x+d*29,337],[x+d*(65-18*fade),321]],'#d8462d',4);g.restore()}
+ requestAnimationFrame(paint);
+}
+requestAnimationFrame(paint);
+const base='https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/';
+let stream=null,session=0,model,lastDeep=0;
+function measure(points){
+ if(!points){bent=false;return false}
+ const angle=(a,b,c)=>{
+ const dx=(points[a].x-points[b].x)*cam.videoWidth,dy=(points[a].y-points[b].y)*cam.videoHeight;
+ const ex=(points[c].x-points[b].x)*cam.videoWidth,ey=(points[c].y-points[b].y)*cam.videoHeight;
+ return Math.acos(Math.max(-1,Math.min(1,(dx*ex+dy*ey)/(Math.hypot(dx,dy)*Math.hypot(ex,ey)))))*180/Math.PI};
+ const legs=[[23,25,27],[24,26,28]].filter(ids=>ids.every(i=>points[i].visibility>.55));
+ if(!legs.length){bent=false;return false}
+ const knee=legs.reduce((n,ids)=>n+angle(...ids),0)/legs.length,t=performance.now();
+ if(knee<142){bent=true;lastDeep=t}
+ if(bent&&knee>160){if(t-lastDeep<350)jump();bent=false}
+ return true;
+}
+function stop(){session++;stream?.getTracks().forEach(t=>t.stop());stream=null;cam.srcObject=null;cam.hidden=true;bent=false;camera.textContent='몸으로 타기'}
+camera.onclick=async()=>{
+ if(stream){stop();msg.textContent='카메라 꺼짐 · 스페이스바로 탈 수 있어요.';return}
+ unlock();camera.disabled=true;const id=++session;
+ try{
+ stream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480},audio:false});
+ cam.srcObject=stream;cam.hidden=false;await cam.play();msg.textContent='동작 인식 도구를 불러오는 중…';
+ if(!window.Pose)await new Promise((ok,fail)=>{const s=document.createElement('script');s.src=base+'pose.js';s.onload=ok;s.onerror=fail;document.head.append(s)});
+ if(!model){model=new Pose({locateFile:file=>base+file});model.setOptions({modelComplexity:0,smoothLandmarks:true})}
+ model.onResults(r=>{if(id!==session)return;msg.textContent=measure(r.poseLandmarks)?(bent?'지금 빠르게 펴세요!':'준비 · 살짝 옆으로 서서 무릎을 굽혀 보세요.'):'뒤로 물러나 발목까지 보여 주세요.'});
+ camera.textContent='카메라 끄기';camera.disabled=false;
+ while(id===session){await model.send({image:cam});await new Promise(requestAnimationFrame)}
+ }catch(e){if(id===session){stop();model=null;msg.textContent=e.name==='NotAllowedError'?'카메라 권한을 허용해 주세요.':'카메라와 인터넷 연결을 확인해 주세요. 스페이스바로도 탈 수 있어요.'}}
+ finally{if(!stream||id===session)camera.disabled=false}
+};
+</script></html>

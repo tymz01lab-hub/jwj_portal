@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>한글 스케이트파크</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#ece9dd;color:#191e1c;font:16px/1.5 "Malgun Gothic",sans-serif}main{max-width:1240px;margin:auto;padding:4vh 4vw}header,nav,.bar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}header{border-bottom:3px solid;padding-bottom:12px}header b{font:italic 900 24px Georgia}button{font:inherit;color:inherit;cursor:pointer;border:2px solid;background:transparent;padding:.55em 1em;font-weight:bold}h1{font-size:clamp(36px,6vw,88px);line-height:1.1;letter-spacing:-.09em;margin:5vh 0 1vh}p{margin:10px 0 24px}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.card{padding:0;text-align:left;overflow:hidden;background:var(--paper);box-shadow:4px 5px #222820;transition:transform .16s}.card:hover,.card:focus-visible{transform:translateY(-5px)}.card span{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-top:2px solid}.card canvas{display:block;width:100%}#scene{width:100%;display:block;margin:12px 0;border:2px solid}button:disabled{opacity:.6}.bar{margin-top:16px;justify-content:flex-start}.action{background:#212722;color:white}small{display:block;margin-top:10px}video{width:90px;vertical-align:middle;border-radius:4px;transform:scaleX(-1)}[hidden]{display:none!important}@media(max-width:620px){.cards{grid-template-columns:1fr}.card{display:flex;align-items:center}.card canvas{width:45%}.card span{width:55%;border:0}main{padding:18px}}
+body{background-color:#171523;background-image:radial-gradient(#393444 1px,transparent 1px);background-size:6px 6px;color:#fff6df}
+main{max-width:1250px;padding-top:24px}header{border-bottom:1px solid #777381}header b{font:italic 1000 22px/1.4 Arial,sans-serif;letter-spacing:-1.4px}header b:before{content:"";display:inline-block;width:32px;height:14px;background:repeating-linear-gradient(115deg,#dfff39 0 5px,transparent 5px 9px);margin-right:8px}
+h1{display:inline-block;font-size:clamp(34px,5.3vw,76px);font-style:italic;letter-spacing:-.11em;text-shadow:3px 3px #181422,5px 5px #ff3987;margin:32px 0 10px}p{color:#ddd8e6}.cards{gap:22px;padding:5px 4px 14px}.card{color:#181422;border:3px solid #fff5e1;box-shadow:6px 7px #070610;transform:rotate(-1deg)}.card:nth-child(2){transform:rotate(1.5deg)}.card:nth-child(3){transform:rotate(-.6deg)}.card:hover,.card:focus-visible{transform:translateY(-6px) rotate(0)}.card span{background:#fff5e1;padding:10px 15px;font-weight:900}.card span b{color:#fff5e1;background:#181422;border-radius:50%;width:32px;text-align:center}
+button:focus-visible{outline:3px solid #dfff39;outline-offset:4px}#scene{border:4px solid #fff5e1;box-shadow:6px 7px #080710}.bar button,header button{background:#fff5e1;color:#181422;border:2px solid #171523;box-shadow:3px 3px #837c90}.bar .action{background:#dfff39}.bar button:active{transform:translate(2px,2px)}#status{color:#e6e1ea;margin-top:14px}
+@media(max-width:620px){.cards{gap:12px}.card canvas{width:42%}.card span{flex:1}.card{background:#fff5e1}.bar{gap:6px}.bar button{padding:.5em .65em}}
+main:has(#ride:not([hidden])){max-width:none;height:100dvh;padding:8px clamp(8px,1vw,20px);display:grid;grid-template-rows:auto minmax(0,1fr);gap:8px}
+#ride:not([hidden]){position:relative;display:grid;grid-template-rows:minmax(0,1fr) auto auto;gap:6px;min-height:0}
+#ride #title{position:absolute;z-index:1;top:8px;left:14px;margin:0;font-size:clamp(22px,3vw,42px);pointer-events:none}
+.stage-slot{container-type:size;display:grid;place-items:center}
+.stage-frame{position:relative;width:min(100cqw,calc(100cqh * 16 / 9));aspect-ratio:16/9}
+#ride #scene{width:100%;height:100%;min-height:0;margin:0;border:0;outline:2px solid #fff5e1}
+#ride .bar,#ride #status{margin:0}
+</style></head><body><main>
+<header><b>Jamo Skate Club</b><button id="back" hidden>글자 바꾸기 ↗</button></header>
+<section id="menu"><h1>한글 스케이트파크</h1><p>타고 싶은 글자를 고르세요.</p><div class="cards" id="cards"></div></section>
+<section id="ride" hidden><div class="stage-slot"><div class="stage-frame"><h1 id="title"></h1><canvas id="scene" width="1080" height="450"></canvas></div></div>
+<div class="bar"><button id="push" class="action">밀기 →</button><button id="ollie">알리 · Space</button><button id="camera">내 몸으로 타기</button><video id="cam" autoplay playsinline muted hidden></video></div>
+<small id="status" role="status">→ 키를 톡톡 눌러 달리고, 획 끝에서 스페이스바로 뛰세요.</small></section></main>
+<script>
+const themes=[
+ {word:'해',parts:'ㅎ　ㅐ',paper:'#ffad51',ink:'#a83425',paths:[[[370,90],[452,90]],[[323,130],[495,130]],Array.from({length:41},(_,i)=>[413+90*Math.cos(Math.PI+i*Math.PI/20),257+82*Math.sin(Math.PI+i*Math.PI/20)]),[[551,74],[551,369]],[[551,219],[704,219]],[[704,74],[704,369]]]},
+ {word:'달',parts:'ㄷ　ㅏ　ㄹ',paper:'#c6c9bc',ink:'#46534f',paths:[[[510,104],[325,104],[325,206],[510,206]],[[575,74],[575,229]],[[575,150],[690,150]],[[328,267],[645,267],[645,312],[328,312],[328,360],[654,360]]]},
+ {word:'물',parts:'ㅁ　ㅜ　ㄹ',paper:'#83cfca',ink:'#135b68',paths:[[[398,73],[602,73],[602,163],[398,163],[398,73]],[[323,199],[677,199]],[[500,199],[500,252]],[[345,280],[650,280],[650,317],[345,317],[345,361],[660,361]]]}
+];
+const scene=document.querySelector('#scene'),ctx=scene.getContext('2d'),msg=document.querySelector('#status');
+const hint='→ 키를 톡톡 눌러 달리고, 획 끝에서 스페이스바로 뛰세요.';
+let theme,rails=[],rider,active=false,last=0,audio,fish=[],bodyAnchor=null,bent=false,flash=0,goal=0,bank=0;
+function stroke(g,path,color,width){g.beginPath();path.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.strokeStyle=color;g.lineWidth=width;g.stroke()}
+function circle(g,x,y,r,color){g.fillStyle=color;g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fill()}
+const black='#21182d',cream='#fff5d9';
+Object.assign(themes[0],{paper:'#ff7854',ink:'#ffbb13',accent:'#ed286d',name:'SUN'});
+Object.assign(themes[1],{paper:'#9978ef',ink:'#deff4a',accent:'#6541b3',name:'MOON'});
+Object.assign(themes[2],{paper:'#49dccc',ink:'#fc719a',accent:'#147fa5',name:'WATER'});
+function polygon(g,points,fill){g.beginPath();points.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();g.fillStyle=fill;g.fill()}
+function motif(g,t,x,y,size){
+ g.save();g.translate(x,y);g.scale(size,size);g.rotate(-.12);g.lineJoin='round';
+ if(t===themes[0]){
+ const rays=Array.from({length:36},(_,i)=>{const a=i*Math.PI/18,r=i%2?62:85;return [Math.cos(a)*r,Math.sin(a)*r]});
+ polygon(g,rays,t.ink);g.strokeStyle=black;g.lineWidth=4;g.stroke();circle(g,0,0,49,black);circle(g,-2,-3,45,t.ink);
+ }else if(t===themes[1]){
+ g.beginPath();g.arc(0,0,69,-1.29,1.0,true);g.bezierCurveTo(-12,38,-24,-29,19,-66);g.closePath();g.fillStyle=t.ink;g.fill();g.strokeStyle=black;g.lineWidth=5;g.stroke();
+ circle(g,-48,21,6,'#adc846');circle(g,-40,36,3,'#adc846');g.translate(-38,-12);g.scale(.55,.55);
+ }else{
+ polygon(g,[[-36,0],[-82,-45],[-72,33]],t.ink);g.strokeStyle=black;g.lineWidth=5;g.stroke();
+ g.beginPath();g.ellipse(8,0,62,36,-.12,0,Math.PI*2);g.fillStyle=t.ink;g.fill();g.stroke();
+ for(let i=0;i<3;i++)stroke(g,[[-25+i*12,-18],[-15+i*12,-3],[-21+i*12,16]],black,3);g.translate(38,-3);g.scale(.55,.55);
+ }
+ g.beginPath();g.moveTo(-27,0);g.quadraticCurveTo(-3,-32,29,-1);g.quadraticCurveTo(2,27,-27,0);g.fillStyle=cream;g.fill();g.strokeStyle=black;g.lineWidth=4;g.stroke();circle(g,3,-2,9,black);circle(g,6,-5,2,cream);g.restore();
+}
+function landscape(g,t){
+ g.fillStyle=t.paper;g.fillRect(0,0,1080,450);
+ polygon(g,[[0,0],[425,0],[0,295]],t.accent);polygon(g,[[1080,83],[1080,450],[682,450]],t.accent);
+ for(let row=0;row<23;row++)for(let col=0;col<22-row;col++)circle(g,col*14+(row%2)*7,row*13,Math.max(.7,4.4-col*.16),black);
+ for(let i=0;i<8;i++)stroke(g,[[720+i*30,450],[835+i*30,365-i*5]],cream,3+i%3);
+ motif(g,t,899,139,1.13);
+}
+function course(g,t){
+ g.lineJoin='round';for(const path of t.paths){g.save();g.translate(6,8);stroke(g,path,black,25);g.restore();stroke(g,path,cream,26);stroke(g,path,black,22);stroke(g,path,t.ink,17);g.save();g.translate(0,-4);g.setLineDash([15,38,3,12]);stroke(g,path,cream,2);g.restore()}
+}
+themes.forEach(t=>{
+ const btn=document.createElement('button');btn.className='card';btn.style.setProperty('--paper',t.paper);
+ btn.innerHTML='<canvas width="440" height="510" aria-hidden="true"></canvas><span>'+t.word+'<b>↗</b></span>';btn.setAttribute('aria-label',t.word+' 파크 열기');
+ const g=btn.firstChild.getContext('2d');g.fillStyle=t.paper;g.fillRect(0,0,440,510);
+ polygon(g,[[0,0],[366,0],[0,305]],t.accent);polygon(g,[[0,448],[440,249],[440,510],[0,510]],t.accent);
+ for(let i=0;i<25;i++)for(let j=0;j<24-i;j++)circle(g,13*i+(j%2)*6,12*j,Math.max(1,4.6-i*.13),black);
+ g.save();g.translate(40,177);g.rotate(-.12);g.scale(1.03,1.12);g.font='italic 1000 211px Malgun Gothic,sans-serif';g.lineJoin='round';g.lineWidth=14;g.strokeStyle=cream;g.strokeText(t.word,0,0);g.lineWidth=7;g.strokeStyle=black;g.strokeText(t.word,0,0);g.fillStyle=t.ink;g.fillText(t.word,0,0);g.restore();
+ motif(g,t,245,283,1.42);
+ for(let i=0;i<4;i++)stroke(g,[[18,301+i*13],[76+i*10,278+i*10]],cream,4);
+ g.save();g.translate(17,477);g.transform(1,-.08,-.19,1,0,0);g.font='1000 86px Arial Black,Arial,sans-serif';g.lineWidth=7;g.strokeStyle=black;g.strokeText(t.name,0,0,398);g.fillStyle=cream;g.fillText(t.name,0,0,398);g.restore();cards.append(btn);btn.onclick=()=>enter(t);
+});
+function tone(freq,end,duration,type='triangle',volume=.16){
+ if(!audio)return;const t=audio.currentTime,o=audio.createOscillator(),a=audio.createGain();o.type=type;o.frequency.setValueAtTime(freq,t);o.frequency.exponentialRampToValueAtTime(end,t+duration);a.gain.setValueAtTime(volume,t);a.gain.exponentialRampToValueAtTime(.001,t+duration);o.connect(a).connect(audio.destination);o.start(t);o.stop(t+duration);
+}
+function height(line,x){return line.a[1]+(x-line.a[0])*(line.b[1]-line.a[1])/(line.b[0]-line.a[0])-10}
+function resetRide(){
+ const x=theme===themes[0]?375:theme===themes[1]?365:435;
+ const line=rails.filter(l=>x>=l.a[0]&&x<=l.b[0]).sort((a,b)=>height(a,x)-height(b,x))[theme===themes[1]?1:0];
+ // Start the sun run on the round stroke below its two short bars.
+ const startLine=theme===themes[0]?rails.find(l=>l.path===2&&x>=l.a[0]&&x<=l.b[0]):line;
+ rider={x,y:height(startLine,x),vx:0,vy:0,line:startLine};fish=[];bank=0;
+}
+const wall=document.createElement('canvas');
+wall.width=scene.width;wall.height=scene.height;
+function enter(t){
+ const mural=wall.getContext('2d');landscape(mural,t);course(mural,t);
+ theme=t;rails=[];t.paths.forEach((path,k)=>path.slice(1).forEach((b,i)=>{let a=path[i];if(Math.abs(b[0]-a[0])<Math.abs(b[1]-a[1])*.65)return;if(a[0]>b[0])[a,b]=[b,a];rails.push({a,b,path:k})}));
+ goal=Math.max(...rails.map(l=>l.b[0]))-20;resetRide();active=true;menu.hidden=true;ride.hidden=false;back.hidden=false;title.textContent=t.word;msg.textContent=hint;
+ audio??=new AudioContext();audio.resume().catch(()=>{});last=performance.now();push.focus();
+}
+function propel(){if(!active||!rider.line)return;rider.vx=Math.min(410,rider.vx+155);tone(190,54,.12,'sawtooth',.06);if(theme===themes[2])fish.push({x:rider.x,y:rider.y,t:0})}
+function jump(){if(!active||!rider.line)return;rider.line=null;rider.vy=theme===themes[1]?-423:-475;rider.vx=Math.max(240,rider.vx);tone(1320,175,.08)}
+push.onclick=propel;ollie.onclick=jump;
+addEventListener('keydown',e=>{if(!active||!['Space','ArrowRight'].includes(e.code))return;if(e.code==='Space'&&[camera,back].includes(document.activeElement))return;e.preventDefault();if(!e.repeat)(e.code==='Space'?jump:propel)()});
+function step(dt){
+ const r=rider,oldY=r.y;r.x+=r.vx*dt;r.vx=Math.max(0,r.vx-(r.line?90:16)*dt);
+ if(r.line){const prev=r.line;if(r.x>prev.b[0])r.line=rails.find(l=>l.path===prev.path&&Math.abs(l.a[0]-prev.b[0])<1&&Math.abs(l.a[1]-prev.b[1])<1&&l.b[0]>prev.b[0]);if(r.line)r.y=height(r.line,r.x)}
+ if(!r.line){r.vy+=(theme===themes[1]?700:960)*dt;r.y+=r.vy*dt;
+ if(r.vy>=0){const hit=rails.filter(l=>r.x>=l.a[0]&&r.x<=l.b[0]&&oldY<=height(l,r.x)+1&&r.y>=height(l,r.x)).sort((a,b)=>height(a,r.x)-height(b,r.x))[0];
+ if(hit){r.line=hit;r.y=height(hit,r.x);r.vy=0;flash=.3;tone(theme===themes[0]?700:140,theme===themes[0]?290:40,.22)}}}
+ if(r.line&&r.vx>30){bank+=r.vx*dt;if(bank>46){bank=0;tone(79,40,.04,'triangle',.045)}}
+ if(r.x>=goal&&r.line){resetRide();msg.textContent='완주! 다시 밀면 한 번 더 탈 수 있어요.'}else if(r.y>500||r.x>1080){resetRide();msg.textContent='다시 출발해요. 획 끝에 닿기 전에 알리!'}
+ flash=Math.max(0,flash-dt);fish.forEach(f=>f.t+=dt);fish=fish.filter(f=>f.t<1);
+}
+function fitScene(){
+ const ratio=Math.min(window.devicePixelRatio||1,2);
+ const width=Math.round(scene.clientWidth*ratio),height=Math.round(scene.clientHeight*ratio);
+ if(width&&height&&(scene.width!==width||scene.height!==height)){scene.width=width;scene.height=height}
+}
+new ResizeObserver(fitScene).observe(scene);
+function draw(){
+ const scale=Math.min(scene.width/530,scene.height/465);
+ const viewWidth=scene.width/scale,viewHeight=scene.height/scale;
+ const centerX=Math.max(505,Math.min(rider.x,705));
+ const top=Math.min((450-viewHeight)/2,rider.y-160);
+ ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle=theme.paper;ctx.fillRect(0,0,scene.width,scene.height);
+ ctx.setTransform(scale,0,0,scale,(viewWidth/2-centerX)*scale,-top*scale);
+ ctx.drawImage(wall,0,0);
+ for(const f of fish){const x=f.x+170*f.t,y=f.y-130*Math.sin(Math.PI*f.t);ctx.fillStyle='#ffdf85';ctx.beginPath();ctx.ellipse(x,y,14,6,-.2,0,7);ctx.fill();stroke(ctx,[[x-13,y],[x-21,y-4],[x-21,y+5],[x-13,y]],'#ffdf85',3)}
+ const {x,y,line}=rider;ctx.save();ctx.translate(x,y);ctx.lineCap='round';
+ if(flash){ctx.save();ctx.globalAlpha=Math.min(1,flash*6);for(const dir of [-1,1])for(let i=0;i<3;i++)stroke(ctx,[[dir*(32+i*4),-7+i*5],[dir*(48+i*8),-23+i*12]],black,3);ctx.restore()}
+ if(bodyAnchor){
+ const {footX,footY,scale}=bodyAnchor;
+ ctx.save();ctx.translate(0,-8);ctx.scale(-scale,scale);ctx.drawImage(bodyLayer,-footX,-footY);ctx.restore();
+ }else{
+ const h=bent||!line?10:0;stroke(ctx,[[-4,-40+h],[-16,-26],[-13,-10]],'#25282b',9);stroke(ctx,[[0,-40+h],[13,-24],[15,-10]],'#303640',10);
+ stroke(ctx,[[-4,-61+h],[-3,-41+h]],'#f1e28a',19);stroke(ctx,[[0,-58+h],[12,-49+h],[22,-55+h]],'#242923',6);
+ circle(ctx,0,-80+h,15,'#ad7857');
+ stroke(ctx,[[-13,-92+h],[13,-93+h]],'#212924',5)}
+ stroke(ctx,[[-36,-9],[-27,-6],[27,-6],[37.5,-10]],'#242723',4);circle(ctx,-21,-2,3,'#191e18');circle(ctx,21,-2,3,'#191e18');ctx.restore();
+}
+function frame(now){if(active){step(Math.min(.034,(now-last)/1000));draw()}last=now;requestAnimationFrame(frame)}requestAnimationFrame(frame);
+const base='https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/';
+let stream=null,session=0,model,lastDeep=0,extended=false;
+const bodyLayer=document.createElement('canvas'),bodyCtx=bodyLayer.getContext('2d');
+function compositeBody(result){
+ bodyAnchor=null;
+ const p=result.poseLandmarks,mask=result.segmentationMask;
+ if(!mask||!p||!p[0]||p[0].visibility<.5)return;
+ // Anatomical left heel and toe, before mirroring the webcam image.
+ const leftSole=[p[29],p[31]].filter(v=>v&&v.visibility>.55&&v.y<1&&v.y>0);
+ if(!leftSole.length)return;
+ const w=cam.videoWidth,h=cam.videoHeight;if(!w||!h)return;
+ if(bodyLayer.width!==w||bodyLayer.height!==h){bodyLayer.width=w;bodyLayer.height=h}
+ bodyCtx.clearRect(0,0,w,h);bodyCtx.drawImage(result.image,0,0,w,h);
+ bodyCtx.globalCompositeOperation='destination-in';bodyCtx.drawImage(mask,0,0,w,h);bodyCtx.globalCompositeOperation='source-over';
+ const footY=Math.max(...leftSole.map(v=>v.y))*h;
+ const standingHeight=Math.abs(p[0].y-(p[23].y+p[24].y)/2)*h*2.1;
+ bodyAnchor={footX:leftSole.reduce((sum,v)=>sum+v.x*w,0)/leftSole.length,footY,scale:145/Math.max(h*.22,standingHeight)};
+}
+function measure(points){
+ if(!points){bent=false;extended=false;return false}
+ const angle=(a,b,c)=>{
+ const dx=(points[a].x-points[b].x)*cam.videoWidth,dy=(points[a].y-points[b].y)*cam.videoHeight;
+ const ex=(points[c].x-points[b].x)*cam.videoWidth,ey=(points[c].y-points[b].y)*cam.videoHeight;
+ return Math.acos(Math.max(-1,Math.min(1,(dx*ex+dy*ey)/(Math.hypot(dx,dy)*Math.hypot(ex,ey)))))*180/Math.PI};
+ const legs=[[23,25,27],[24,26,28]].filter(ids=>ids.every(i=>points[i].visibility>.55));
+ if(!legs.length){bent=false;extended=false;return false}
+ const knee=legs.reduce((n,ids)=>n+angle(...ids),0)/legs.length,t=performance.now();
+  const legLength=Math.max(.12,Math.abs((points[27].y+points[28].y-points[23].y-points[24].y)/2));
+ const stride=Math.abs(points[27].x-points[28].x)*cam.videoWidth/(legLength*cam.videoHeight);
+ if(legs.length===2&&knee>143){
+ if(stride>.48)extended=true;
+ if(extended&&stride<.28){extended=false;propel()}
+ }else extended=false;
+ if(knee<142){bent=true;lastDeep=t}
+ if(bent&&knee>160){if(t-lastDeep<350)jump();bent=false}
+ return true;
+}
+function stop(){session++;stream?.getTracks().forEach(t=>t.stop());stream=null;cam.srcObject=null;cam.hidden=true;bodyAnchor=null;bodyCtx.clearRect(0,0,bodyLayer.width,bodyLayer.height);bent=false;extended=false;camera.textContent='내 몸으로 타기'}
+camera.onclick=async()=>{
+ if(stream){stop();msg.textContent='카메라 꺼짐 · 스페이스바로 탈 수 있어요.';return}
+ camera.disabled=true;const id=++session;
+ try{
+ const acquired=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480},audio:false});
+ if(id!==session){acquired.getTracks().forEach(t=>t.stop());return}stream=acquired;cam.srcObject=stream;cam.hidden=true;await cam.play();msg.textContent='동작 인식 도구를 불러오는 중…';
+ if(!window.Pose)await new Promise((ok,fail)=>{const s=document.createElement('script');s.src=base+'pose.js';s.onload=ok;s.onerror=fail;document.head.append(s)});
+ if(id!==session)return;if(!model){model=new Pose({locateFile:file=>base+file});model.setOptions({modelComplexity:1,smoothLandmarks:true,enableSegmentation:true,smoothSegmentation:true})}
+ model.onResults(r=>{if(id!==session)return;compositeBody(r);const tracked=measure(r.poseLandmarks);msg.textContent=tracked&&bodyAnchor?(bent?'지금 빠르게 펴세요!':'옆으로 서서 한 발을 뒤로 밀었다 모으세요. 무릎을 굽혔다 펴면 알리!'):'뒤로 물러나 발목까지 보여 주세요.'});
+ camera.textContent='카메라 끄기';camera.disabled=false;
+ while(id===session){await model.send({image:cam});await new Promise(requestAnimationFrame)}
+ }catch(e){if(id===session){stop();model=null;msg.textContent=e.name==='NotAllowedError'?'카메라 권한을 허용해 주세요.':'카메라와 인터넷 연결을 확인해 주세요. 스페이스바로도 탈 수 있어요.'}}
+ finally{if(!stream||id===session)camera.disabled=false}
+};
+back.onclick=()=>{stop();camera.disabled=false;active=false;back.hidden=true;ride.hidden=true;menu.hidden=false;cards.firstChild.focus()};
+</script></body></html>
+

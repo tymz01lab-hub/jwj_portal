@@ -6,7 +6,7 @@ if (!(Test-Path -LiteralPath $compiler)) { $compiler = Join-Path $env:WINDIR 'Mi
 Push-Location $PSScriptRoot
 try {
     foreach ($mode in @('start', 'stop')) {
-        $name = if ($mode -eq 'start') { '전시 시작.exe' } else { '전시 종료.exe' }
+        $name = if ($mode -eq 'start') { '스케이트보드 전시 시작.exe' } else { '전시 종료.exe' }
         $response = Join-Path $PSScriptRoot ('build-web-' + $mode + '.rsp')
         $options = @('/nologo', '/target:winexe', '/optimize+', '/platform:anycpu', '/r:System.Windows.Forms.dll', ('/out:"..\웹 실행\' + $name + '"'), 'WebLauncher.cs')
         if ($mode -eq 'stop') { $options += '/define:STOP' }

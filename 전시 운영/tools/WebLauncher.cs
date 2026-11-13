@@ -2,12 +2,16 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
 internal static class WebLauncher
 {
-    private const string Url = "https://tymz01lab-hub.github.io/skateboardword/";
+    private const string Url = "https://tymz01lab-hub.github.io/skateboardword/?exhibition=20261113";
+    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(IntPtr window);
+    [DllImport("user32.dll")] private static extern bool ShowWindowAsync(IntPtr window, int command);
+    [DllImport("user32.dll")] private static extern bool IsIconic(IntPtr window);
     [STAThread]
     private static int Main(string[] args)
     {
@@ -23,15 +27,26 @@ internal static class WebLauncher
                 if (!locked) throw new Exception("다른 실행 명령을 처리 중입니다. 잠시 후 다시 눌러 주세요.");
                 Process previous = OwnedBrowser(state);
 #if STOP
-                if (previous != null)
-                {
-                    string taskkill = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "taskkill.exe");
-                    using (Process stop = Process.Start(new ProcessStartInfo(taskkill, "/PID " + previous.Id + " /T /F") { UseShellExecute = false, CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden }))
-                        if (stop != null) stop.WaitForExit(5000);
-                }
+                StopBrowser(previous);
                 if (File.Exists(state)) File.Delete(state);
 #else
-                if (previous != null) return 0;
+                if (previous != null)
+                {
+                    IntPtr window = previous.MainWindowHandle;
+                    if (!test && window == IntPtr.Zero && (DateTime.UtcNow - previous.StartTime.ToUniversalTime()).TotalSeconds < 5)
+                    {
+                        try { previous.WaitForInputIdle(2500); } catch (InvalidOperationException) { }
+                        previous.Refresh();window = previous.MainWindowHandle;
+                        if (window == IntPtr.Zero && !previous.HasExited && (DateTime.UtcNow - previous.StartTime.ToUniversalTime()).TotalSeconds < 5) return 0;
+                    }
+                    if (!test && window != IntPtr.Zero)
+                    {
+                        if (IsIconic(window)) ShowWindowAsync(window, 9);
+                        SetForegroundWindow(window);return 0;
+                    }
+                    // A remaining background process must not block the next exhibition.
+                    StopBrowser(previous);
+                }
                 string chrome = FindChrome();
                 Directory.CreateDirectory(folder);
                 string options = "--user-data-dir=\"" + Path.Combine(folder, "chrome-profile") + "\" --no-first-run --no-default-browser-check --disable-session-crashed-bubble ";
@@ -46,6 +61,14 @@ internal static class WebLauncher
             catch (Exception error) { MessageBox.Show(error.Message, "전시 운영", MessageBoxButtons.OK, MessageBoxIcon.Error); return 1; }
             finally { if (locked) mutex.ReleaseMutex(); }
         }
+    }
+    private static void StopBrowser(Process browser)
+    {
+        if (browser == null || browser.HasExited) return;
+        string taskkill = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "taskkill.exe");
+        using (Process stop = Process.Start(new ProcessStartInfo(taskkill, "/PID " + browser.Id + " /T /F") { UseShellExecute = false, CreateNoWindow = true, WindowStyle = ProcessWindowStyle.Hidden }))
+            if (stop != null) stop.WaitForExit(5000);
+        if (!browser.WaitForExit(3000)) throw new Exception("전시 창을 닫지 못했습니다. 잠시 후 종료 파일을 다시 실행해 주세요.");
     }
     private static Process OwnedBrowser(string state)
     {

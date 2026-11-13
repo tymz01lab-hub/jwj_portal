@@ -330,6 +330,15 @@ const fresh = time => {
   run('drawStudio(performance.now());studioReturn.onclick()');
   assert.equal(run('stage'),1,'Pose stage returns to shop');
   assert.equal(uploads,0,'Four-stage flow has no photo recording');
+  for(const phase of [1,2,3,4]){
+    run('setStage('+phase+');selectedTheme=themes[0];participant={id:1,locked:true,missing:false};motion.ground={27:.9};updateParticipant({id:2,locked:true,missing:false})');
+    assert.equal(run('stage'),phase,'Replacement participant continues the current stage');
+    assert.equal(run('selectedTheme'),run('themes[0]'),'Replacement keeps the chosen board');
+    assert.equal(run('motion.ground'),null,'New participant calibrates their own floor height');
+  }
+  run('enter(themes[0]);participant={id:2,locked:true,missing:true};rider.vx=200');const pausedX=run('rider.x');
+  run('step(.1)');assert.equal(run('rider.x'),pausedX,'Game waits while its locked participant is missing');
+  run('participant={id:3,locked:true,missing:false};step(.1)');assert.ok(run('rider.x')>pausedX,'Game continues when a participant is reacquired');
   console.log('PASS: slower movement preserves jump distance across moon and both sea gaps');
   console.log('PASS: two-foot ollie, no crouch/single-foot/heel-lift/jitter jumps, feet-apart auto-drive, short-hop and occlusion recognition');
   console.log('PASS: shop/lesson/park/studio flow, learned controls, continuous ollies without zoom, no recording');

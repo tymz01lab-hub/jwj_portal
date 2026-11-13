@@ -182,11 +182,11 @@ const fresh = time => {
     for(const [i,x,y]of [[0,.5,.2],[11,.43,.35],[12,.57,.35],[13,.36,.45],[14,.64,.45],[15,.32,.6],[16,.68,.6],[19,.32,.62],[20,.68,.62],[23,.46,.55],[24,.54,.55],[25,.45,.72],[26,.55,.72],[27,.44,.88],[28,.56,.88],[29,.43,.9],[30,.55,.9],[31,.46,.92],[32,.58,.92]])studioPoints[i]={x,y,visibility:1};
     studioPoints[0].visibility=.1;lobbyPerson=null;updateFinishPerson({poseLandmarks:studioPoints,segmentationMask:{},image:{}});openStudio();`);
   assert.equal(run('!!previewPerson(studioCanvas.getContext("2d"),studioCanvas,performance.now()).person'),true,'Low face visibility keeps masked body');
-  const nearView=run('previewPerson(studioCanvas.getContext("2d"),studioCanvas,performance.now())');
+  const nearView=run('studioCameraView(performance.now())');
   run('var nearPose=studioPoints.map(p=>({...p}));for(const p of studioPoints){p.x=.5+(p.x-.5)*.5;p.y=.5+(p.y-.5)*.5}lobbyPerson=null;updateFinishPerson({poseLandmarks:studioPoints,segmentationMask:{},image:{}})');
-  const farView=run('previewPerson(studioCanvas.getContext("2d"),studioCanvas,performance.now())');
-  assert.ok(farView.scale>nearView.scale*1.7,'Distant person is framed larger automatically');
-  const boardPose=()=>run('studioBoardPose(previewPerson(studioCanvas.getContext("2d"),studioCanvas,performance.now()))');
+  const farView=run('studioCameraView(performance.now())');
+  assert.equal(farView.scale,nearView.scale,'Studio keeps the full camera frame at a stable scale');
+  const boardPose=()=>run('studioBoardPose(studioCameraView(performance.now()))');
   run('studioHand.onclick()');const held=boardPose();
   run('studioPoints[15].x+=.03;studioPoints[15].y-=.02');const moved=boardPose();
   assert.ok(moved.x<held.x&&moved.y<held.y,'Hand mode follows mirrored wrist movement');
@@ -198,11 +198,13 @@ const fresh = time => {
   run('studioPoints[27].visibility=0;drawStudio(performance.now())');assert.equal(boardPose(),null,'Hidden left ankle shows guidance rather than a detached deck');
   context.now+=1000;run('updateFinishPerson({poseLandmarks:null})');
   assert.ok(run('currentPerson(performance.now())'),'One-second detector gap retains person');
-  calls.length=0;run('stream={};cam.readyState=2;cam.currentTime=10;refreshPersonVideo(performance.now());stream=null');
-  assert.ok(calls.some(call=>call.key==='drawImage'&&call.args[0]===elements.cam),'Live video composites between pose results');
+  calls.length=0;run('stream={};cam.readyState=2;cam.currentTime=10;refreshPersonVideo(performance.now());lobbyPerson=null;drawStudio(performance.now());stream=null');
+  assert.ok(calls.some(call=>call.id==='studioCanvas'&&call.key==='drawImage'&&call.args[0]===elements.cam),'Full live webcam is visible without pose detection');
+  assert.ok(!calls.some(call=>call.id==='studioCanvas'&&call.key==='drawImage'&&call.args[0]===run('shopWall')),'Studio does not draw the shop background');
+  assert.ok(!calls.some(call=>call.id==='studioCanvas'&&call.key==='drawImage'&&call.args[0]===run('personCutout')),'Studio does not replace video with a cutout');
   calls.length=0;run('makeRoomBackground().userData.update({image:{},segmentationMask:{}})');
   assert.ok(!calls.some(call=>call.key==='getImageData'||call.key==='putImageData'),'Room background avoids CPU pixel readbacks');
-  console.log('PASS: weak-face visibility, far-person framing, live video independent of pose, hand/left-sole modes, no CPU background loop');
+  console.log('PASS: full webcam framing, live video without pose detection, hand/left-sole modes, no CPU background loop');
   function standing(){
     run(`var gait=Array.from({length:33},()=>({x:.5,y:.3,visibility:0}));
       gait[0]={x:.5,y:.2,visibility:1};

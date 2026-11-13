@@ -178,6 +178,8 @@ async function captureCourses(){
     assert.equal(await evaluate('qaJumpCount'),i,'Repeated ollie succeeds without a closeup');
   }
   await screenshot('ollie-continuous-qa.png');
+  // Feed a synthetic live camera before entering studio; no physical device.
+  await evaluate('(async()=>{stream=qaImage.captureStream(30);cam.srcObject=stream;const pump=setInterval(()=>{paint.fillStyle="#ff00ff";paint.fillRect(0,0,1,1);stream.getVideoTracks()[0].requestFrame?.()},30);try{await Promise.race([cam.play(),new Promise((_,reject)=>setTimeout(()=>reject(new Error("Synthetic video play timeout")),4000))])}finally{clearInterval(pump)}})()');
   for(let index=0;index<3;index++){
     await evaluate('qaRefresh();enter(themes['+index+']);var qaFinish=rails.find(line=>goal>=line.a[0]&&goal<=line.b[0]);rider={x:goal-2,y:height(qaFinish,goal)-45,vx:240,vy:-180,line:null};step(.02);drawStudio(performance.now())');
     assert.equal(await evaluate('stage===4 && !studio.hidden && !active && finished'),true,'Airborne finish opens last screen in park '+index);
@@ -186,30 +188,33 @@ async function captureCourses(){
   }
   assert.equal(await evaluate('stage===4 && !studio.hidden && !active'),true,'Park completion enters pose-stage placeholder');
   await wait(100);await screenshot('studio-placeholder-qa.png');
-  await evaluate('qaRefresh();studioHand.click();drawStudio(performance.now());var qaStudioView=previewPerson(studioCanvas.getContext("2d"),studioCanvas,performance.now()),qaHandPose=studioBoardPose(qaStudioView)');
+  await evaluate('qaRefresh();studioHand.click();drawStudio(performance.now());var qaStudioView=studioCameraView(performance.now()),qaHandPose=studioBoardPose(qaStudioView)');
   assert.equal(await evaluate('studioHand.getAttribute("aria-pressed")==="true" && Math.abs(qaHandPose.x-qaStudioView.point(qaPoints[qaHandPose.wrist]).x)<.01'),true,'Board is attached to wrist, not beside the person');
   await screenshot('studio-hand-qa.png');
-  await evaluate('studioFoot.click();drawStudio(performance.now());var qaFootPose=studioBoardPose(previewPerson(studioCanvas.getContext("2d"),studioCanvas,performance.now()))');
+  await evaluate('studioFoot.click();drawStudio(performance.now());var qaFootPose=studioBoardPose(studioCameraView(performance.now()))');
   await evaluate('for(const i of [27,29,31]){qaPoints[i].x+=.03;qaPoints[i].y-=.015}');
-  const footFollow=await evaluate('studioBoardPose(previewPerson(studioCanvas.getContext("2d"),studioCanvas,performance.now()))');
+  const footFollow=await evaluate('studioBoardPose(studioCameraView(performance.now()))');
   assert.ok(footFollow.x<(await evaluate('qaFootPose.x'))&&footFollow.y<(await evaluate('qaFootPose.y')),'Left-sole board follows left-foot pose');
   await evaluate('drawStudio(performance.now())');await screenshot('studio-foot-qa.png');
   // Synthetic canvas video only: no webcam permission, device capture or recording.
-  await evaluate('(async()=>{stream=qaImage.captureStream(30);cam.srcObject=stream;const pump=setInterval(()=>{paint.fillStyle="#ff00ff";paint.fillRect(0,0,1,1);stream.getVideoTracks()[0].requestFrame?.()},30);try{await Promise.race([cam.play(),new Promise((_,reject)=>setTimeout(()=>reject(new Error("Synthetic video play timeout")),4000))])}finally{clearInterval(pump)}qaPoints[0].visibility=.05;qaRefresh();window.qaPoseStamp=lobbyPerson.time;paint.fillStyle="#00ee44";paint.fillRect(290,200,40,40);stream.getVideoTracks()[0].requestFrame?.()})()');
+  await evaluate('qaPoints[0].visibility=.05;qaRefresh();window.qaPoseStamp=lobbyPerson.time;paint.fillStyle="#00ee44";paint.fillRect(290,200,40,40);stream.getVideoTracks()[0].requestFrame?.()');
   await wait(150);
-  assert.deepEqual(await evaluate('Array.from(personBrush.getImageData(320,220,1,1).data)'),[0,238,68,255],'New video frame appears before the next pose result');
+  assert.deepEqual(await evaluate('(()=>{const v=studioCameraView(performance.now()),p=v.point({x:.5,y:220/480});return Array.from(studioCanvas.getContext("2d").getImageData(Math.round(p.x),Math.round(p.y),1,1).data)})()'),[0,238,68,255],'New raw video frame appears before the next pose result');
   assert.equal(await evaluate('lobbyPerson.time===qaPoseStamp'),true,'Live display does not wait for pose updates');
   await evaluate('updateFinishPerson({poseLandmarks:null})');await wait(900);
   assert.equal(await evaluate('!!currentPerson(performance.now())'),true,'Body remains visible through a short detection gap and weak face');
-  await evaluate('stream.getTracks().forEach(t=>t.stop());stream=null;cam.srcObject=null;qaRefresh();studioHand.click();window.qaNearScale=previewPerson(studioCanvas.getContext("2d"),studioCanvas,performance.now()).scale');
+  await evaluate('lobbyPerson=null;drawStudio(performance.now())');
+  assert.deepEqual(await evaluate('(()=>{const v=studioCameraView(performance.now()),p=v.point({x:.05,y:.05});return Array.from(studioCanvas.getContext("2d").getImageData(Math.round(p.x),Math.round(p.y),1,1).data)})()'),[255,0,255,255],'Actual camera background remains visible even when pose is lost');
+  await evaluate('qaRefresh();studioHand.click();window.qaNearScale=studioCameraView(performance.now()).scale');
   await evaluate(`
     for(const canvas of [qaImage,qaMask]){const copy=document.createElement('canvas');copy.width=640;copy.height=480;copy.getContext('2d').drawImage(canvas,0,0);const g=canvas.getContext('2d');g.clearRect(0,0,640,480);if(canvas===qaImage){g.fillStyle='#ff00ff';g.fillRect(0,0,640,480)}g.drawImage(copy,160,120,320,240)}
     for(const p of qaPoints){p.x=.5+(p.x-.5)*.5;p.y=.5+(p.y-.5)*.5}lobbyPerson=null;qaRefresh();drawStudio(performance.now());
   `);
-  assert.ok(await evaluate('previewPerson(studioCanvas.getContext("2d"),studioCanvas,performance.now()).scale')>await evaluate('qaNearScale')*1.7,'Distant participant automatically fills studio frame');
+  assert.equal(await evaluate('studioCameraView(performance.now()).scale'),await evaluate('qaNearScale'),'Full webcam framing stays unchanged when participant moves farther away');
   await screenshot('studio-far-qa.png');
   for(const [width,height]of [[390,844],[1440,900]]){await call('Emulation.setDeviceMetricsOverride',{width,height,deviceScaleFactor:1,mobile:false});await wait(100);assert.equal(await evaluate('document.documentElement.scrollHeight<=innerHeight'),true,'Studio modes fit '+width+'px viewport')}
-  console.log('PASS: weak-face display, short tracking gap, live video between inference results, hand/left-foot modes, distant-body framing');
+  await evaluate('stream.getTracks().forEach(t=>t.stop());stream=null;cam.srcObject=null');
+  console.log('PASS: full raw webcam and original background, video without pose detection, hand/left-foot modes');
   assert.equal(await evaluate('document.querySelector("#photoRecap")===null'),true,'Polaroid removed');
   assert.equal(recordingRequests.length,0,'No photo upload requests');
   console.log('PASS: ollie across finish opens last screen for sun, moon and sea');

@@ -1,6 +1,8 @@
 전시 콘텐츠와 운영 파일 보관 위치
 
 콘텐츠: https://github.com/tymz01lab-hub/skateboardword
+돌포인트 콘텐츠: https://github.com/tymz01lab-hub/dolpoint
+돌포인트 웹 배포: https://tymz01lab-hub.github.io/dolpoint/
 운영 파일·개발 원본: https://github.com/tymz01lab-hub/jwj_portal
 웹 배포: 기존 skateboardword 저장소의 main 변경 시 GitHub Pages가 갱신됩니다.
 

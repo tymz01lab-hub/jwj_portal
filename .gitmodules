@@ -1,3 +1,6 @@
 [submodule "skateboardword"]
 	path = skateboardword
 	url = https://github.com/tymz01lab-hub/skateboardword.git
+[submodule "dolpoint"]
+	path = 돌포인트_돌려보시겠습니까
+	url = https://github.com/tymz01lab-hub/dolpoint.git

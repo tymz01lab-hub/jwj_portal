@@ -1,0 +1,3 @@
+[submodule "skateboardword"]
+	path = skateboardword
+	url = https://github.com/tymz01lab-hub/skateboardword.git

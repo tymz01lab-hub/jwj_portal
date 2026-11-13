@@ -286,6 +286,13 @@ const fresh = time => {
   const stem=run('sunAe(0,0).map((v,i)=>v-sunAe(0,295)[i])');
   assert.ok(Math.abs(Math.abs(stem[0])-Math.abs(stem[1]))<1e-8,'ㅐ stems are tilted exactly 45 degrees');
   console.log('PASS: connected 45-degree sun course finishes without a gap/reset');
+  for(let index=0;index<3;index++){
+    run('enter(themes['+index+']);audio=null;var finishRail=rails.find(line=>goal>=line.a[0]&&goal<=line.b[0]);rider={x:goal-2,y:height(finishRail,goal)-45,vx:240,vy:-180,line:null};step(.02)');
+    assert.equal(run('stage'),4,'Crossing the finish during an ollie enters the last screen in park '+index);
+    assert.equal(run('active'),false);assert.equal(elements.studio.hidden,false);
+    assert.ok(elements.studioLabel.textContent.includes(run('theme.word')),'Last screen keeps selected deck');
+    run('drawStudio(performance.now())');
+  }
   run('enter(themes[2]);rider.x=goal;rider.line=rails.find(line=>rider.x>=line.a[0]&&rider.x<=line.b[0]);step(0)');
   assert.equal(run('stage'),4,'Park completion enters pose stage');
   assert.equal(run('active'),false);assert.equal(elements.studio.hidden,false);

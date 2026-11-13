@@ -132,6 +132,8 @@ const fresh = time => {
   fresh(30000);
   assert.equal(run('active'), false, 'Hidden screen cannot auto start');
   run('document.hidden=false;updateFinishPerson({poseLandmarks:null});drawSelection(30000)');
+  assert.ok(run('lobbyPerson'),'Brief tracking loss does not erase visible person');
+  context.now=32001;run('updateFinishPerson({poseLandmarks:null});drawSelection(performance.now())');
   assert.equal(run('lobbyPerson'), null);
   assert.equal(run('reach'), null, 'Lost tracking clears pending contact');
   run('clearBoard()');
@@ -172,8 +174,35 @@ const fresh = time => {
   assert.doesNotMatch(code,/ollieMoment|ollieView|startOllieMoment|closeUp/,'All closeup code removed');
   assert.doesNotMatch(html,/id="ollieMoment"/,'Closeup overlay removed');
   assert.equal(uploads,0,'No uploads');
-  context.now = run('lobbyPerson.time')+1000;
+  context.now = run('lobbyPerson.time')+2001;
   assert.equal(run('drawLiveRider()'), false, 'Stale camera image uses keyboard character fallback');
+  // A distant/turned face must not gate body display or the two studio modes.
+  context.now=45000;
+  run(`var studioPoints=Array.from({length:33},()=>({x:.5,y:.5,visibility:0}));
+    for(const [i,x,y]of [[0,.5,.2],[11,.43,.35],[12,.57,.35],[13,.36,.45],[14,.64,.45],[15,.32,.6],[16,.68,.6],[19,.32,.62],[20,.68,.62],[23,.46,.55],[24,.54,.55],[25,.45,.72],[26,.55,.72],[27,.44,.88],[28,.56,.88],[29,.43,.9],[30,.55,.9],[31,.46,.92],[32,.58,.92]])studioPoints[i]={x,y,visibility:1};
+    studioPoints[0].visibility=.1;lobbyPerson=null;updateFinishPerson({poseLandmarks:studioPoints,segmentationMask:{},image:{}});openStudio();`);
+  assert.equal(run('!!previewPerson(studioCanvas.getContext("2d"),studioCanvas,performance.now()).person'),true,'Low face visibility keeps masked body');
+  const nearView=run('previewPerson(studioCanvas.getContext("2d"),studioCanvas,performance.now())');
+  run('var nearPose=studioPoints.map(p=>({...p}));for(const p of studioPoints){p.x=.5+(p.x-.5)*.5;p.y=.5+(p.y-.5)*.5}lobbyPerson=null;updateFinishPerson({poseLandmarks:studioPoints,segmentationMask:{},image:{}})');
+  const farView=run('previewPerson(studioCanvas.getContext("2d"),studioCanvas,performance.now())');
+  assert.ok(farView.scale>nearView.scale*1.7,'Distant person is framed larger automatically');
+  const boardPose=()=>run('studioBoardPose(previewPerson(studioCanvas.getContext("2d"),studioCanvas,performance.now()))');
+  run('studioHand.onclick()');const held=boardPose();
+  run('studioPoints[15].x+=.03;studioPoints[15].y-=.02');const moved=boardPose();
+  assert.ok(moved.x<held.x&&moved.y<held.y,'Hand mode follows mirrored wrist movement');
+  assert.equal(elements.studioHand.attributes['aria-pressed'],'true');
+  run('studioFoot.onclick()');const leftFoot=boardPose();
+  run('for(const i of [27,29,31]){studioPoints[i].x+=.03;studioPoints[i].y-=.02}');const leftMoved=boardPose();
+  assert.ok(leftMoved.x<leftFoot.x&&leftMoved.y<leftFoot.y,'Foot mode follows anatomical left sole');
+  run('for(const i of [28,30,32])studioPoints[i].x-=.05');assert.equal(boardPose().x,leftMoved.x,'Right foot cannot move left-foot deck');
+  run('studioPoints[27].visibility=0;drawStudio(performance.now())');assert.equal(boardPose(),null,'Hidden left ankle shows guidance rather than a detached deck');
+  context.now+=1000;run('updateFinishPerson({poseLandmarks:null})');
+  assert.ok(run('currentPerson(performance.now())'),'One-second detector gap retains person');
+  calls.length=0;run('stream={};cam.readyState=2;cam.currentTime=10;refreshPersonVideo(performance.now());stream=null');
+  assert.ok(calls.some(call=>call.key==='drawImage'&&call.args[0]===elements.cam),'Live video composites between pose results');
+  calls.length=0;run('makeRoomBackground().userData.update({image:{},segmentationMask:{}})');
+  assert.ok(!calls.some(call=>call.key==='getImageData'||call.key==='putImageData'),'Room background avoids CPU pixel readbacks');
+  console.log('PASS: weak-face visibility, far-person framing, live video independent of pose, hand/left-sole modes, no CPU background loop');
   function standing(){
     run(`var gait=Array.from({length:33},()=>({x:.5,y:.3,visibility:0}));
       gait[0]={x:.5,y:.2,visibility:1};
